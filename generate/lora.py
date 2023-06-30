@@ -28,8 +28,8 @@ lora_dropout = 0.05
 
 
 def main(
-    prompt: str = "What food do lamas eat?",
-    input: str = "",
+    # prompt: str = "What food do lamas eat?",
+    # input: str = "",
     lora_path: Path = Path("out/lora/alpaca/lit_model_lora_finetuned.pth"),
     checkpoint_dir: Path = Path(f"checkpoints/stabilityai/stablelm-base-alpha-3b"),
     quantize: Literal["llm.int8", "gptq.int4"] = None,
@@ -97,34 +97,40 @@ def main(
     model.eval()
     model = fabric.setup(model)
 
-    tokenizer = Tokenizer(checkpoint_dir)
-    sample = {"instruction": prompt, "input": input}
-    prompt = generate_prompt(sample)
-    encoded = tokenizer.encode(prompt, device=model.device)
-    prompt_length = encoded.size(0)
-    max_returned_tokens = prompt_length + max_new_tokens
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
 
-    t0 = time.perf_counter()
-    y = generate(
-        model,
-        encoded,
-        max_returned_tokens,
-        max_seq_length=max_returned_tokens,
-        temperature=temperature,
-        top_k=top_k,
-        eos_id=tokenizer.eos_id,
-    )
-    t = time.perf_counter() - t0
 
-    model.reset_cache()
-    output = tokenizer.decode(y)
-    output = output.split("### Response:")[1].strip()
-    fabric.print(output)
+    while(True):
+        query = input("Enter question:\n")
+        if not query.strip():
+            break        
+        sample = {"instruction": query, "input": ""}
+        prompt = generate_prompt(sample)
+        encoded = tokenizer.encode(prompt, device=model.device)
+        prompt_length = encoded.size(0)
+        max_returned_tokens = prompt_length + max_new_tokens
 
-    tokens_generated = y.size(0) - prompt_length
-    fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
-    if fabric.device.type == "cuda":
-        fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
+        t0 = time.perf_counter()
+        y = generate(
+            model,
+            encoded,
+            max_returned_tokens,
+            max_seq_length=max_returned_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            eos_id=tokenizer.eos_id,
+        )
+        t = time.perf_counter() - t0
+
+        model.reset_cache()
+        output = tokenizer.decode(y)
+        output = output.split("### Response:")[1].strip()
+        fabric.print(output)
+
+        tokens_generated = y.size(0) - prompt_length
+        fabric.print(f"\n\nTime for inference: {t:.02f} sec total, {tokens_generated / t:.02f} tokens/sec", file=sys.stderr)
+        if fabric.device.type == "cuda":
+            fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB", file=sys.stderr)
 
 
 if __name__ == "__main__":

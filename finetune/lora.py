@@ -23,10 +23,10 @@ from scripts.prepare_alpaca import generate_prompt
 eval_interval = 100
 save_interval = 100
 eval_iters = 100
-log_interval = 1
+log_interval = 10
 devices = 1
 # change this value to force a maximum sequence length
-override_max_seq_length = None
+override_max_seq_length = 512
 
 # Hyperparameters
 learning_rate = 3e-4
@@ -123,7 +123,7 @@ def train(
     out_dir: Path,
     speed_monitor: SpeedMonitor,
 ) -> None:
-    tokenizer = Tokenizer(checkpoint_dir)
+    tokenizer = Tokenizer(checkpoint_dir / "tokenizer.json", checkpoint_dir / "tokenizer_config.json")
     max_seq_length, longest_seq_length, longest_seq_ix = get_max_seq_length(train_data)
 
     validate(fabric, model, val_data, tokenizer, longest_seq_length)  # sanity check
